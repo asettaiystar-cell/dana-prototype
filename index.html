@@ -1,0 +1,1601 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DANA - Дербес Автоматты Нақты Ақыл</title>
+    <!-- Three.js және OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #e6eef4;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* ==========================================
+           СОЛ ЖАҚ ПАНЕЛЬ (DANA ИНТЕРФЕЙСІ)
+           ========================================== */
+        .sidebar {
+            width: 325px;
+            min-width: 325px;
+            height: 100vh;
+            background-color: #eaf2f8;
+            display: flex;
+            flex-direction: column;
+            padding: 14px 14px 12px 14px;
+            border-right: 1px solid #cddce8;
+            z-index: 20;
+        }
+
+        .brand-header { margin-bottom: 10px; }
+        .logo-row { display: flex; align-items: center; gap: 10px; }
+        .ai-book-icon { width: 44px; height: 38px; flex-shrink: 0; }
+        .brand-title-wrap { display: flex; flex-direction: column; }
+        .brand-name {
+            font-family: 'Georgia', serif;
+            font-size: 32px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: #0b1922;
+            line-height: 1;
+        }
+        .brand-sub {
+            font-size: 9.5px;
+            letter-spacing: 1.2px;
+            color: #7b8a97;
+            text-transform: uppercase;
+            margin-top: 3px;
+            font-weight: 600;
+        }
+        .acronym-kz {
+            font-size: 11px;
+            font-weight: 800;
+            color: #111;
+            margin-top: 8px;
+            white-space: nowrap;
+        }
+        .acronym-en {
+            font-size: 9.5px;
+            color: #8c9ba5;
+            margin-top: 2px;
+            white-space: nowrap;
+        }
+
+        /* 3D ГОЛОГРАММА АВАТАР КОНТЕЙНЕРІ */
+        .avatar-box {
+            width: 100%;
+            height: 220px;
+            background: radial-gradient(circle at 50% 45%, #161129 0%, #07060c 100%);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25), inset 0 0 20px rgba(0, 240, 255, 0.15);
+            margin-bottom: 10px;
+            border: 1px solid #2a3b55;
+            cursor: pointer;
+        }
+        #holoCanvasWrap {
+            width: 100%;
+            height: 100%;
+        }
+        .holo-scanline {
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                to bottom,
+                transparent 0px,
+                transparent 2px,
+                rgba(0, 240, 255, 0.04) 3px
+            );
+            pointer-events: none;
+        }
+        .holo-status {
+            position: absolute;
+            bottom: 8px;
+            left: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: #38bdf8;
+            background: rgba(7, 10, 20, 0.75);
+            padding: 3px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            pointer-events: none;
+        }
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #00f5d4;
+            box-shadow: 0 0 8px #00f5d4;
+            animation: blink 1.5s infinite;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        /* Чат аймағы */
+        .chat-feed {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding-right: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 8px;
+            user-select: text;
+        }
+        .chat-feed::-webkit-scrollbar { width: 4px; }
+        .chat-feed::-webkit-scrollbar-thumb { background: #b8cfe0; border-radius: 4px; }
+        .msg {
+            padding: 9px 12px;
+            border-radius: 10px;
+            font-size: 12.5px;
+            line-height: 1.45;
+            animation: fadeIn 0.25s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .msg-ai {
+            background: #ffffff;
+            color: #1e293b;
+            border-left: 3px solid #0f766e;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .msg-user {
+            background: #b9d2e6;
+            color: #0f172a;
+            align-self: flex-end;
+            font-weight: 600;
+        }
+
+        /* Жылдам батырмалар (Чиптер) */
+        .quick-chips {
+            display: flex;
+            gap: 5px;
+            overflow-x: auto;
+            padding-bottom: 6px;
+            margin-bottom: 4px;
+        }
+        .quick-chips::-webkit-scrollbar { height: 0px; }
+        .q-chip {
+            background: #dbe8f3;
+            color: #1e3a5f;
+            border: 1px solid #b8cfe0;
+            border-radius: 14px;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .q-chip:hover {
+            background: #0d8a82;
+            color: #fff;
+            border-color: #0d8a82;
+        }
+
+        /* Төменгі басқару карточкасы */
+        .control-card {
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .question-input {
+            width: 100%;
+            border: none;
+            outline: none;
+            font-size: 13px;
+            color: #334155;
+            background: transparent;
+            padding: 4px 2px 10px 2px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .dana-btn {
+            background-color: #bfd4e6;
+            color: #1e293b;
+            border: none;
+            border-radius: 18px;
+            padding: 9px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            transition: 0.2s;
+        }
+        .dana-btn:hover { background-color: #acc7de; }
+        .lang-select {
+            appearance: none;
+            background-color: #bfd4e6;
+            color: #1e293b;
+            border: none;
+            border-radius: 18px;
+            padding: 9px 24px 9px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231e293b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 13px;
+        }
+
+        /* ==========================================
+           ОҢ ЖАҚ ПАНЕЛЬ (3D САХНА ЖӘНЕ ЛЕКЦИЯ)
+           ========================================== */
+        .workspace-wrapper {
+            flex-grow: 1;
+            height: 100vh;
+            padding: 6px;
+            background-color: #e6eef4;
+        }
+        .model-stage {
+            width: 100%;
+            height: 100%;
+            background-color: #0b1822;
+            background-image: repeating-linear-gradient(
+                to bottom,
+                rgba(255, 255, 255, 0.025) 0px,
+                rgba(255, 255, 255, 0.025) 1px,
+                transparent 1px,
+                transparent 28px
+            );
+            border: 2px solid #28597a;
+            border-radius: 14px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #renderArea {
+            width: 100%;
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Лазерлік байланыстырушы сызықтар (SVG) */
+        #leaderSvg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 4;
+        }
+
+        /* Ортадағы AI Водяной знак */
+        .center-watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 340px;
+            height: 340px;
+            pointer-events: none;
+            opacity: 0.25;
+            transition: opacity 0.5s ease;
+        }
+        .center-watermark.hidden { opacity: 0; }
+
+        /* 3D Сахнаның жоғарғы басқару тақтасы */
+        .stage-toolbar {
+            position: absolute;
+            top: 14px;
+            left: 18px;
+            right: 18px;
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 8;
+            pointer-events: none;
+        }
+        .stage-toolbar.active { display: flex; }
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            pointer-events: auto;
+        }
+        .stage-pill {
+            background: rgba(11, 24, 34, 0.88);
+            border: 1px solid #1e607a;
+            color: #94d2bd;
+            padding: 7px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            backdrop-filter: blur(4px);
+        }
+        .stage-pill:hover, .stage-pill.active-mode {
+            background: #0d9488;
+            color: #fff;
+            border-color: #2dd4bf;
+        }
+        .slider-box {
+            background: rgba(11, 24, 34, 0.88);
+            border: 1px solid #1e607a;
+            padding: 5px 14px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #cbd5e1;
+            font-size: 11.5px;
+        }
+        .slider-box input[type="range"] {
+            accent-color: #14b8a6;
+            width: 90px;
+            cursor: pointer;
+        }
+
+        /* 3D Бөлшектердің анықтама карточкалары */
+        .part-label {
+            position: absolute;
+            background: rgba(11, 24, 34, 0.94);
+            border: 1px solid #0d9488;
+            border-left: 3px solid #2dd4bf;
+            color: #f1f5f9;
+            padding: 8px 11px;
+            border-radius: 8px;
+            font-size: 11.5px;
+            width: 195px;
+            opacity: 0;
+            pointer-events: none;
+            transform: translate(-50%, -50%) scale(0.65);
+            transition: opacity 0.35s ease, transform 0.35s ease, border-color 0.2s;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.65);
+            z-index: 6;
+            cursor: pointer;
+        }
+        .part-label.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        .part-label:hover {
+            border-color: #f59e0b;
+            transform: translate(-50%, -50%) scale(1.05);
+            z-index: 15;
+        }
+        .part-label b {
+            color: #2dd4bf;
+            display: block;
+            margin-bottom: 3px;
+            font-size: 12.5px;
+        }
+        .part-meta {
+            display: block;
+            margin-top: 4px;
+            font-size: 10px;
+            color: #94a3b8;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            padding-top: 3px;
+        }
+
+        /* ==========================================
+           ТӨМЕНГІ ИНТЕРАКТИВТІ ЛЕКЦИЯ ПАНЕЛІ
+           ========================================== */
+        .lecture-panel {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(9, 20, 30, 0.94);
+            backdrop-filter: blur(12px);
+            border-top: 2px solid #14b8a6;
+            color: #f1f5f9;
+            display: none;
+            flex-direction: column;
+            transition: height 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+            height: 62px; /* Бастапқыда қысқаша ғана окошка */
+            z-index: 12;
+            box-shadow: 0 -8px 25px rgba(0,0,0,0.5);
+        }
+        .lecture-panel.active { display: flex; }
+        .lecture-panel.expanded { height: 54%; }
+        .lecture-panel.fullscreen { height: 86%; }
+
+        .lecture-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            height: 62px;
+            min-height: 62px;
+            cursor: pointer;
+            background: linear-gradient(90deg, rgba(13, 148, 136, 0.18) 0%, transparent 100%);
+            border-bottom: 1px solid rgba(30, 96, 122, 0.5);
+        }
+        .lecture-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            overflow: hidden;
+        }
+        .lec-badge {
+            background: #14b8a6;
+            color: #042f2e;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            flex-shrink: 0;
+        }
+        .lec-main-title {
+            font-weight: 700;
+            font-size: 14.5px;
+            color: #f8fafc;
+            white-space: nowrap;
+        }
+        .lec-short-preview {
+            font-size: 12px;
+            color: #94a3b8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 420px;
+            border-left: 2px solid #334155;
+            padding-left: 10px;
+        }
+        .lecture-panel.expanded .lec-short-preview { display: none; }
+
+        .lec-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .expand-btn {
+            background: #0d9488;
+            border: 1px solid #2dd4bf;
+            color: #ffffff;
+            padding: 7px 16px;
+            border-radius: 18px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            transition: 0.2s;
+            box-shadow: 0 0 12px rgba(20, 184, 166, 0.4);
+        }
+        .expand-btn:hover { background: #14b8a6; transform: translateY(-1px); }
+        .max-btn {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            padding: 7px 11px;
+            border-radius: 18px;
+            cursor: pointer;
+            font-size: 12px;
+            display: none;
+        }
+        .lecture-panel.expanded .max-btn { display: inline-block; }
+
+        /* Лекция бөлімдерінің табтары */
+        .lecture-tabs {
+            display: flex;
+            gap: 6px;
+            padding: 10px 20px 0 20px;
+            background: rgba(7, 15, 23, 0.6);
+            border-bottom: 1px solid #1e293b;
+            overflow-x: auto;
+        }
+        .lec-tab {
+            background: transparent;
+            color: #94a3b8;
+            border: none;
+            border-bottom: 2px solid transparent;
+            padding: 8px 14px;
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: 0.2s;
+        }
+        .lec-tab:hover { color: #e2e8f0; }
+        .lec-tab.active {
+            color: #2dd4bf;
+            border-bottom-color: #2dd4bf;
+            background: rgba(45, 212, 191, 0.08);
+            border-radius: 6px 6px 0 0;
+        }
+
+        /* Лекцияның ішкі мазмұны */
+        .lecture-body {
+            padding: 18px 24px;
+            overflow-y: auto;
+            font-size: 13.5px;
+            line-height: 1.65;
+            color: #e2e8f0;
+            flex-grow: 1;
+            user-select: text;
+        }
+        .lecture-body::-webkit-scrollbar { width: 6px; }
+        .lecture-body::-webkit-scrollbar-thumb { background: #1e607a; border-radius: 4px; }
+
+        .lec-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 14px;
+            margin-top: 12px;
+        }
+        .lec-card {
+            background: rgba(15, 34, 50, 0.75);
+            border: 1px solid #1e4963;
+            border-radius: 10px;
+            padding: 12px 15px;
+        }
+        .lec-card h4 {
+            color: #38bdf8;
+            font-size: 13.5px;
+            margin-bottom: 6px;
+        }
+        .formula-box {
+            background: #060d14;
+            border-left: 3px solid #f59e0b;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-family: 'Consolas', monospace;
+            color: #fde68a;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+        .spec-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 12.5px;
+        }
+        .spec-table th, .spec-table td {
+            border: 1px solid #1e3a52;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .spec-table th {
+            background: rgba(13, 148, 136, 0.25);
+            color: #2dd4bf;
+        }
+        .quiz-option {
+            display: block;
+            width: 100%;
+            text-align: left;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid #334155;
+            color: #f1f5f9;
+            padding: 8px 12px;
+            margin-top: 6px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12.5px;
+            transition: 0.2s;
+        }
+        .quiz-option:hover { border-color: #38bdf8; }
+        .quiz-option.correct { background: rgba(16, 185, 129, 0.3); border-color: #10b981; color: #a7f3d0; }
+        .quiz-option.wrong { background: rgba(239, 68, 68, 0.3); border-color: #ef4444; color: #fecaca; }
+    </style>
+</head>
+<body>
+
+    <!-- СОЛ ЖАҚ ПАНЕЛЬ: DANA ИНТЕРФЕЙСІ -->
+    <aside class="sidebar">
+        <div class="brand-header">
+            <div class="logo-row">
+                <svg class="ai-book-icon" viewBox="0 0 64 52" fill="none">
+                    <path d="M6 8C16 6 26 8 32 13V46C26 41 16 39 6 41V8Z" fill="#0d8a82"/>
+                    <path d="M58 8C48 6 38 8 32 13V46C38 41 48 39 58 41V8Z" fill="#0d8a82"/>
+                    <text x="12" y="31" fill="#eaf2f8" font-family="Arial" font-weight="bold" font-size="18">A</text>
+                    <text x="43" y="31" fill="#eaf2f8" font-family="Arial" font-weight="bold" font-size="18">I</text>
+                </svg>
+                <div class="brand-title-wrap">
+                    <div class="brand-name">DANA</div>
+                    <div class="brand-sub" id="uiSubtitle">ЖЕКЕ ИИ-КӨМЕКШІ</div>
+                </div>
+            </div>
+            <div class="acronym-kz">Д.А.Н.А. = Дербес Автоматты Нақты Ақыл</div>
+            <div class="acronym-en">J.A.R.V.I.S. = Just A Rather Very Intelligent System</div>
+        </div>
+
+        <!-- 3D ГОЛОГРАММА ҚЫЗ АВАТАРЫ (WebGL) -->
+        <div class="avatar-box" id="avatarBox" onclick="pulseHologram()" title="3D Голограмма (Импульс беру үшін басыңыз)">
+            <div id="holoCanvasWrap"></div>
+            <div class="holo-scanline"></div>
+            <div class="holo-status">
+                <span class="status-dot"></span>
+                <span id="holoStatusText">DANA HOLOGRAM // ACTIVE</span>
+            </div>
+        </div>
+
+        <!-- Диалог лентасы -->
+        <div class="chat-feed" id="chatFeed">
+            <div class="msg msg-ai" id="welcomeMsg">
+                Сәлеметсіз бе! Мен <b>DANA</b> — интерактивті 3D лектор-ассистентпін. Оң жаққа ручканың 3D моделін шығарып, бөлшектерге шашу және толық лекциясын ашу үшін <b>«ручканы шаш»</b> деп жазыңыз.
+            </div>
+        </div>
+
+        <!-- Жылдам командалар -->
+        <div class="quick-chips">
+            <button class="q-chip" onclick="triggerCommand('ручканы шаш')" id="chip1">💥 Ручканы шашу</button>
+            <button class="q-chip" onclick="triggerCommand('лекция')" id="chip2">📖 Толық лекция</button>
+            <button class="q-chip" onclick="triggerCommand('жина')" id="chip3">🔄 Қайта жинау</button>
+        </div>
+
+        <!-- Төменгі басқару блогы -->
+        <div class="control-card">
+            <input type="text" id="questionInput" class="question-input" placeholder="Дәріс бойынша сұрақ жазыңыз...">
+            <div class="btn-grid">
+                <button class="dana-btn" onclick="triggerCommand('ручканы шаш')" id="btnUpload">+ 3D Модель</button>
+                <button class="dana-btn" onclick="handleSend()" id="btnSend">Жіберу ↗</button>
+                <button class="dana-btn" id="btnVoice" style="cursor: default; opacity: 0.78;">🔇 Дыбыс өш.</button>
+                <select class="lang-select" id="langSelect" onchange="changeLanguage(this.value)">
+                    <option value="ru">Рус</option>
+                    <option value="kk" selected>Қаз</option>
+                    <option value="en">Eng</option>
+                </select>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ОҢ ЖАҚ ПАНЕЛЬ: 3D САХНА ЖӘНЕ ЛЕКЦИЯ ОКОШКАСЫ -->
+    <main class="workspace-wrapper">
+        <div class="model-stage" id="stageMain">
+            
+            <div id="renderArea">
+                <!-- Лазерлік сызықтар -->
+                <svg id="leaderSvg"></svg>
+
+                <!-- Ортадағы AI Водяной знак (Басында тұрады, ручка шыққанда жоғалады) -->
+                <svg class="center-watermark" id="watermarkSvg" viewBox="0 0 300 300" fill="none">
+                    <ellipse cx="150" cy="150" rx="135" ry="68" transform="rotate(42 150 150)" stroke="#1d6fa5" stroke-width="2"/>
+                    <ellipse cx="150" cy="150" rx="125" ry="62" transform="rotate(34 150 150)" stroke="#1d6fa5" stroke-width="1.5"/>
+                    <path d="M110 122C125 118 140 122 150 130V182C140 174 125 170 110 174V122Z" fill="#0d8a82"/>
+                    <path d="M190 122C175 118 160 122 150 130V182C160 174 175 170 190 174V122Z" fill="#0d8a82"/>
+                    <text x="118" y="159" fill="#0b1822" font-family="Arial" font-weight="900" font-size="26">A</text>
+                    <text x="167" y="159" fill="#0b1822" font-family="Arial" font-weight="900" font-size="26">I</text>
+                </svg>
+
+                <!-- Жоғарғы 3D басқару тақтасы -->
+                <div class="stage-toolbar" id="stageToolbar">
+                    <div class="toolbar-group">
+                        <button class="stage-pill" onclick="triggerCommand('шаш')" id="pillExplode">💥 Шашу</button>
+                        <button class="stage-pill" onclick="triggerCommand('жина')" id="pillAssemble">🔄 Жинау</button>
+                        <button class="stage-pill" onclick="toggleWireframe()" id="pillWire">🩻 Голограмма режимі</button>
+                    </div>
+                    <div class="toolbar-group">
+                        <div class="slider-box">
+                            <span id="sliderLabel">Шашылуы:</span>
+                            <input type="range" id="explodeSlider" min="0" max="100" value="100" oninput="manualExplode(this.value)">
+                            <span id="sliderVal">100%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ТӨМЕНГІ ИНТЕРАКТИВТІ ЛЕКЦИЯ ПАНЕЛІ -->
+            <div class="lecture-panel" id="lecturePanel">
+                <div class="lecture-header" onclick="toggleLecture()">
+                    <div class="lecture-title-wrap">
+                        <span class="lec-badge" id="badgeText">ДӘРІС / ЛЕКЦИЯ</span>
+                        <span class="lec-main-title" id="lecTitleText">Автоматты қаламсаптың инженерлік құрылымы мен физикасы</span>
+                        <span class="lec-short-preview" id="lecPreviewText">Құрылғы 6 негізгі тораптан тұрады: конус, серіппе, стержень, корпус, клипса және кулачокты механизм...</span>
+                    </div>
+                    <div class="lec-controls" onclick="event.stopPropagation()">
+                        <button class="max-btn" onclick="toggleFullLecture()" id="maxBtn" title="Үлкейту / Кішірейту">⛶ Кеңейту</button>
+                        <button class="expand-btn" onclick="toggleLecture()" id="expandBtn">Толығырақ (Подробно) 🔼</button>
+                    </div>
+                </div>
+
+                <!-- Лекцияның 5 бөлімі (Табтар) -->
+                <div class="lecture-tabs" id="lectureTabs"></div>
+
+                <!-- Лекция мәтіні шығатын жер -->
+                <div class="lecture-body" id="lectureBody"></div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // =========================================================================
+        // 1. СОЛ ЖАҚТАҒЫ 3D ГОЛОГРАММА ҚЫЗДЫ ЖАСАУ (NEON CONTOUR SHADER)
+        // =========================================================================
+        const holoWrap = document.getElementById('holoCanvasWrap');
+        const holoScene = new THREE.Scene();
+        const holoCamera = new THREE.PerspectiveCamera(36, holoWrap.clientWidth / holoWrap.clientHeight, 0.1, 100);
+        holoCamera.position.set(0, 0.15, 4.3);
+
+        const holoRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        holoRenderer.setSize(holoWrap.clientWidth, holoWrap.clientHeight);
+        holoRenderer.setPixelRatio(window.devicePixelRatio);
+        holoWrap.appendChild(holoRenderer.domElement);
+
+        // Сіз жіберген суреттегідей (көк-күлгін-алтын) неонды топографиялық сызықтар шейдері
+        const holoUniforms = {
+            uTime: { value: 0 },
+            uSpeakBoost: { value: 0.0 }
+        };
+
+        const holoMaterial = new THREE.ShaderMaterial({
+            uniforms: holoUniforms,
+            transparent: true,
+            value: 1,
+            vertexShader: `
+                varying vec3 vPos;
+                varying vec3 vNormal;
+                varying vec3 vViewPosition;
+                uniform float uTime;
+                uniform float uSpeakBoost;
+
+                void main() {
+                    vPos = position;
+                    vNormal = normalize(normalMatrix * normal);
+
+                    // Тыныс алу және сөйлегендегі микро-толқын
+                    vec3 displaced = position;
+                    float wave = sin(position.y * 12.0 - uTime * 6.0) * 0.015 * uSpeakBoost;
+                    displaced += normal * wave;
+
+                    vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
+                    vViewPosition = -mvPosition.xyz;
+                    gl_Position = projectionMatrix * mvPosition;
+                }
+            `,
+            fragmentShader: `
+                varying vec3 vPos;
+                varying vec3 vNormal;
+                varying vec3 vViewPosition;
+                uniform float uTime;
+                uniform float uSpeakBoost;
+
+                void main() {
+                    vec3 normal = normalize(vNormal);
+                    vec3 viewDir = normalize(vViewPosition);
+
+                    // Френель эффектісі (жиектерінің жарқырауы)
+                    float fresnel = pow(1.0 - abs(dot(normal, viewDir)), 2.2);
+
+                    // Топографиялық контур сызықтары (суреттегідей ирек сызықтар)
+                    float wavePattern = vPos.y * 55.0 + sin(vPos.x * 8.0 + vPos.z * 6.0) * 3.5 - uTime * (1.8 + uSpeakBoost * 4.0);
+                    float lines = smoothstep(0.15, 0.85, abs(sin(wavePattern)));
+
+                    // Түстер палитрасы: Оң жағы ашық көк (Cyan), Сол жағы қызғылт-күлгін (Magenta), Төменгі жағы Алтын (Gold)
+                    vec3 cyan = vec3(0.0, 0.92, 1.0);
+                    vec3 magenta = vec3(0.98, 0.15, 0.65);
+                    vec3 gold = vec3(1.0, 0.65, 0.1);
+                    vec3 deepBlue = vec3(0.06, 0.12, 0.32);
+
+                    float sideMix = smoothstep(-0.6, 0.6, normal.x + 0.25);
+                    vec3 baseColor = mix(magenta, cyan, sideMix);
+                    float bottomGlow = smoothstep(0.1, -0.9, vPos.y);
+                    baseColor = mix(baseColor, gold, bottomGlow * 0.55);
+
+                    // Сөйлегендегі энергия жарқылы
+                    float speakWave = sin(vPos.y * 10.0 - uTime * 10.0) * 0.5 + 0.5;
+                    vec3 finalColor = mix(deepBlue, baseColor, lines * 0.85 + fresnel * 0.9);
+                    finalColor += cyan * speakWave * uSpeakBoost * 0.45;
+
+                    float alpha = clamp(lines * 0.65 + fresnel * 0.85 + 0.18, 0.0, 0.96);
+                    gl_FragColor = vec4(finalColor, alpha);
+                }
+            `
+        });
+
+        // 3D Қыздың мүсінін (Бас, мойын, иық, шаш буыны) анатомиялық профильмен құрастыру
+        const avatarBustGroup = new THREE.Group();
+        holoScene.add(avatarBustGroup);
+
+        // 1. Бас сүйегі мен бет бедерін (профильді) математикалық деформациямен жасау
+        const headGeo = new THREE.SphereGeometry(0.72, 64, 64);
+        const posAttr = headGeo.attributes.position;
+        for (let i = 0; i < posAttr.count; i++) {
+            let x = posAttr.getX(i);
+            let y = posAttr.getY(i);
+            let z = posAttr.getZ(i);
+
+            // Басты тігінен сәл созу және жағын жіңішкерту
+            y *= 1.18;
+            x *= 0.86;
+            if (y < 0) {
+                x *= (1.0 + y * 0.28); // Иекке қарай сүйірлеу
+                if (z > 0) z += (0.25 + y * 0.15) * 0.35; // Иек пен жақ
+            }
+            // Мұрын бедері
+            if (z > 0.3 && Math.abs(x) < 0.22 && y > -0.25 && y < 0.25) {
+                const noseFactor = (1.0 - Math.abs(x) / 0.22) * Math.cos((y - 0.0) * 4.5);
+                if (noseFactor > 0) z += noseFactor * 0.16;
+            }
+            // Көз ойысы
+            if (z > 0.35 && Math.abs(x) > 0.12 && Math.abs(x) < 0.38 && y > 0.05 && y < 0.26) {
+                z -= 0.055;
+            }
+            // Ерін бедері
+            if (z > 0.35 && Math.abs(x) < 0.2 && y > -0.42 && y < -0.24) {
+                z += 0.06;
+            }
+            posAttr.setXYZ(i, x, y, z);
+        }
+        headGeo.computeVertexNormals();
+        const headMesh = new THREE.Mesh(headGeo, holoMaterial);
+        headMesh.position.y = 0.38;
+        avatarBustGroup.add(headMesh);
+
+        // 2. Сымбатты мойын және иық (LatheGeometry)
+        const neckPoints = [
+            new THREE.Vector2(0.27, 0.05),
+            new THREE.Vector2(0.25, -0.25),
+            new THREE.Vector2(0.29, -0.52),
+            new THREE.Vector2(0.65, -0.72),
+            new THREE.Vector2(1.05, -0.95),
+            new THREE.Vector2(1.15, -1.25)
+        ];
+        const neckGeo = new THREE.LatheGeometry(neckPoints, 50);
+        neckGeo.scale(1.0, 1.0, 0.68);
+        const neckMesh = new THREE.Mesh(neckGeo, holoMaterial);
+        neckMesh.position.y = 0.05;
+        avatarBustGroup.add(neckMesh);
+
+        // 3. Артқы шаш буыны (Суреттегідей екі иірімді түйін)
+        const bun1Geo = new THREE.TorusGeometry(0.24, 0.11, 24, 48);
+        const bun1 = new THREE.Mesh(bun1Geo, holoMaterial);
+        bun1.position.set(0, 0.32, -0.72);
+        bun1.rotation.y = Math.PI / 2;
+        avatarBustGroup.add(bun1);
+
+        const bun2Geo = new THREE.TorusGeometry(0.16, 0.08, 20, 40);
+        const bun2 = new THREE.Mesh(bun2Geo, holoMaterial);
+        bun2.position.set(0, 0.04, -0.68);
+        bun2.rotation.y = Math.PI / 2;
+        avatarBustGroup.add(bun2);
+
+        // 4. Айналасындағы голографиялық сақиналар
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true, transparent: true, opacity: 0.25 });
+        const holoRing = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.008, 8, 64), ringMat);
+        holoRing.rotation.x = Math.PI / 2.2;
+        holoRing.position.y = -0.65;
+        holoScene.add(holoRing);
+
+        // Суреттегідей профильді ракурсқа сәл бұрып қою
+        avatarBustGroup.rotation.y = 0.55;
+
+        function pulseHologram() {
+            holoUniforms.uSpeakBoost.value = 1.6;
+            document.getElementById('holoStatusText').innerText = "DANA // NEURAL TRANSMITTING...";
+            setTimeout(() => {
+                document.getElementById('holoStatusText').innerText = "DANA HOLOGRAM // ACTIVE";
+            }, 2200);
+        }
+
+        // =========================================================================
+        // 2. КӨПТІЛДІ СӨЗДІК ЖӘНЕ ЖАН-ЖАҚТЫ 5 БӨЛІМДІ АКАДЕМИЯЛЫҚ ЛЕКЦИЯ БАЗАСЫ
+        // =========================================================================
+        let currentLang = 'kk';
+        let currentTabIndex = 0;
+
+        const dictionary = {
+            kk: {
+                subtitle: "ЖЕКЕ ИИ-КӨМЕКШІ",
+                placeholder: "Дәріс бойынша сұрақ жазыңыз (мысалы: ручканы шаш)...",
+                upload: "+ 3D Модель",
+                send: "Жіберу ↗",
+                voiceLabel: "🔇 Дыбыс өш.",
+                chip1: "💥 Ручканы шашу",
+                chip2: "📖 Толық лекция",
+                chip3: "🔄 Қайта жинау",
+                pillExplode: "💥 Шашу",
+                pillAssemble: "🔄 Жинау",
+                pillWire: "🩻 Голограмма режимі",
+                sliderLabel: "Шашылуы:",
+                badge: "ДӘРІС / ЛЕКЦИЯ",
+                lecTitle: "Автоматты қаламсаптың инженерлік құрылымы мен физикасы",
+                lecPreview: "Құрылғы 6 негізгі тораптан тұрады: конус, серіппе, стержень, корпус, клипса және кулачокты механизм...",
+                expandBtn: "Толығырақ (Подробно) 🔼",
+                collapseBtn: "Қысқарту (Свернуть) 🔽",
+                welcome: "Сәлеметсіз бе! Мен <b>DANA</b> — интерактивті 3D ассистентпін. Оң жаққа ручканы шығарып, 6 бөлшекке шашу және толық лекциясын ашу үшін <b>«ручканы шаш»</b> деп жазыңыз.",
+                explodedReply: "<b>Орындалды!</b> 3D модель экранға шығарылып, 6 инженерлік торапқа бөлінді. Төмендегі лекция терезесінен <b>«Толығырақ 🔼»</b> батырмасын басып, толық ғылыми дәрісті оқи аласыз.",
+                assembledReply: "Барлық 6 бөлшек бастапқы жинаулы күйге қайтарылды.",
+                lectureOpenReply: "Толық академиялық лекция терезесі ашылды. Ішіндегі 5 бөлімді (Тарихы, Механика, Материалтану, Формулалар, Тест) таңдап көре аласыз.",
+                helpReply: "3D модель мен лекцияны іске қосу үшін <b>«ручканы шаш»</b>, <b>«бөлшекте»</b> немесе <b>«лекция»</b> деп жазыңыз.",
+                parts: [
+                    { name: "1. Ұштық (Конус)", desc: "Жазу кезінде стерженьді орталықтандырып, люфтті жоятын металл конус.", meta: "Материалы: Жез (Латунь) | Дәлдігі: ±0.02 мм" },
+                    { name: "2. Қысу серіппесі", desc: "Потенциалдық энергияны жинап, стерженьді кері қайтаратын спираль.", meta: "Материалы: Серіппелі болат | k = 120 Н/м" },
+                    { name: "3. Сия сауыты (Стержень)", desc: "Ішінде тиксотропиялық пастасы және ұшында вольфрам шаригі бар өзек.", meta: "Шарик: Ø 0.7 мм WC | Сия қоры: 1200 м" },
+                    { name: "4. Төменгі корпус", desc: "Саусақпен ұстауға арналған эргономикалық цилиндрлік гильза.", meta: "Материалы: Анодталған алюминий / ABS" },
+                    { name: "5. Жоғарғы корпус пен Клипса", desc: "Ішкі механизмді қорғайтын қаптама және серпімді қалта қыстырғышы.", meta: "Материалы: Болат + Алтын жалату (PVD)" },
+                    { name: "6. Кулачокты батырма", desc: "Стерженьді шығарып, бистабильді күйде құлыптайтын роторлы механизм.", meta: "Механизм: 2-тактілі храповик (Cam)" }
+                ],
+                tabs: [
+                    {
+                        title: "📘 1. Жалпы шолу & Тарихы",
+                        html: `
+                            <p><b>Инженерлік анықтама:</b> Автоматты шарикті қаламсап — тұтқырлығы жоғары паста тәрізді сияны айналмалы микро-шарик арқылы қағаз бетіне мөлшерлеп түсіретін, бистабильді қайтарма механизмімен жабдықталған дәлдік механика құрылғысы.</p>
+                            <div class="lec-grid">
+                                <div class="lec-card">
+                                    <h4>🏛️ Өнертабыс тарихы (1938–1943 жж.)</h4>
+                                    Алғашқы заманауи шарикті ручканы венгр журналисі <b>Ласло Биро (László Bíró)</b> өзінің химик ағасы Дьёрдь Биромен бірге ойлап тапты. Олар газет баспаханасының тез кебетін бояуын кішкентай болат шарикпен үйлестіріп, 1943 жылы Британ Корольдік Әуе күштері (RAF) ұшқыштары үшін жоғары биіктікте ағып кетпейтін қалам жасап шығарды.
+                                </div>
+                                <div class="lec-card">
+                                    <h4>🔬 Неліктен бұл жоғары технологиялық бұйым?</h4>
+                                    Қарапайым көрінгенімен, стержень ұшындағы шарик пен оның ұяшығы арасындағы саңылау небәрі <b>1–3 микрометрді (мкм)</b> құрайды (адам шашынан 30 есе жұқа). Бұл детальдарды жасау үшін жоғары дәлдіктегі CNC станоктар қолданылады.
+                                </div>
+                            </div>
+                            <table class="spec-table">
+                                <tr><th>Техникалық параметр</th><th>Инженерлік көрсеткіш</th><th>Стандарт / Ескерту</th></tr>
+                                <tr><td>Жазу шаригінің диаметрі</td><td>0.5 мм – 1.0 мм</td><td>ISO 12757-1 халықаралық стандарты</td></tr>
+                                <tr><td>Шариктың айналу жылдамдығы</td><td>~3 000 – 4 500 айн/мин</td><td>Қалыпты жазу жылдамдығында</td></tr>
+                                <tr><td>Сияның динамикалық тұтқырлығы</td><td>10 000 – 15 000 мПа·с</td><td>Судан шамамен 12 000 есе қою</td></tr>
+                                <tr><td>Жазу ресурсы (Стержень ұзындығы)</td><td>900 – 1 500 метр үздіксіз сызық</td><td>Шарик тозуы < 5 мкм</td></tr>
+                            </table>
+                        `
+                    },
+                    {
+                        title: "⚙️ 2. Кинематика & Механизм",
+                        html: `
+                            <p><b>Кулачокты (Cam & Plunger) автоматты механизмнің жұмыс істеу принципі:</b> Ручканың жоғарғы бөлігінде орналасқан батырма (6-бөлшек) <b>бистабильді механикалық триггер</b> рөлін атқарады.</p>
+                            <div class="lec-grid">
+                                <div class="lec-card">
+                                    <h4>1-фаза: Іске қосу (Жазу режимі)</h4>
+                                    Батырманы басқан кезде плунжер (итергіш) төмен түсіп, ішкі ротордың (кулачоктың) көлбеу тістеріне тіреледі. Көлбеу беттің әсерінен ротор өз осінен <b>45° бұрылады</b> да, корпустың ішкі ойығына (стопорға) тіреліп, стерженьді сыртта құлыптап ұстап қалады.
+                                </div>
+                                <div class="lec-card">
+                                    <h4>2-фаза: Қайтару (Жабық режим)</h4>
+                                    Батырманы екінші рет басқанда плунжер роторды стопордан итеріп шығарады. Ротор тағы <b>45° бұрылып</b>, терең пазға түседі де, алдыңғы жақтағы сығылған <b>серіппенің (2-бөлшек)</b> серпімділік күші стерженьді ішке лақтырып қайтарады.
+                                </div>
+                            </div>
+                        `
+                    },
+                    {
+                        title: "🧪 3. Материалтану & Химия",
+                        html: `
+                            <p>Ручканың әрбір бөлшегі нақты механикалық және химиялық жүктемеге сай материалдардан таңдалады:</p>
+                            <div class="lec-grid">
+                                <div class="lec-card">
+                                    <h4>💎 Вольфрам карбиді (WC) — Шарик</h4>
+                                    Жазатын шарик болаттан емес, <b>вольфрам карбидінен</b> жасалады. Оның Моос шкаласы бойынша қаттылығы — <b>9.0</b> (алмаздан кейінгі ең қатты материал). Бұл қағазға миллиондаған рет үйкелгенде шариктың пішіні бұзылмауын қамтамасыз етеді.
+                                </div>
+                                <div class="lec-card">
+                                    <h4>💧 Тиксотропиялық сия реологиясы</h4>
+                                    Ручка сиясы — <b>Ньютондық емес (тиксотропиялық) сұйықтық</b>. Тыныштық күйінде ол гель сияқты қою болады (сондықтан стерженьнен ағып кетпейді). Ал шарик айналған кезде пайда болатын ығысу кернеуінен (shear stress) ол сұйылып, қағазға жеңіл жағылады.
+                                </div>
+                            </div>
+                        `
+                    },
+                    {
+                        title: "📐 4. Инженерлік Формулалар",
+                        html: `
+                            <p>Қаламсапты жобалау кезінде инженер-механиктер қолданатын негізгі 3 физикалық теңдеу:</p>
+                            <div class="formula-box">
+                                1. Серіппенің серпімділік күші (Гук заңы):  F = k · Δx  |  Потенциалдық энергия: E = (k · Δx²) / 2
+                            </div>
+                            <p>Мұндағы <b>k ≈ 120 Н/м</b> — серіппе қатаңдығы, ал <b>Δx ≈ 5 мм (0.005 м)</b> — батырма басқандағы сығылу ұзындығы. Нәтижесінде қайтару күші <b>F ≈ 0.6 Ньютонды</b> құрайды.</p>
+                            <div class="formula-box">
+                                2. Шариктың бұрыштық жылдамдығы:  ω = v / r   (мұндағы v — қолдың жазу жылдамдығы, r — шарик радиусы)
+                            </div>
+                            <div class="formula-box">
+                                3. Капиллярлық ұстап тұру қысымы (Лаплас теңдеуі):  ΔP = (2 · σ · cosθ) / R
+                            </div>
+                            <p>Бұл формула сияның стержень түтікшесінен өздігінен ағып кетпей, тек шарик айналғанда ғана шығуын есептейді.</p>
+                        `
+                    },
+                    {
+                        title: "✅ 5. Мини-Тест (Бекіту)",
+                        html: `
+                            <p><b>Сабақты бекітуге арналған интерактивті сұрақтар (жауапты басып тексеріңіз):</b></p>
+                            <div class="lec-grid">
+                                <div class="lec-card">
+                                    <h4>1. Стержень ұшындағы шарик қандай материалдан жасалады?</h4>
+                                    <button class="quiz-option" onclick="checkQuiz(this, false)">А) Жұмсақ алюминий қорытпасы</button>
+                                    <button class="quiz-option" onclick="checkQuiz(this, true)">Ә) Вольфрам карбиді (WC)</button>
+                                    <button class="quiz-option" onclick="checkQuiz(this, false)">Б) Қарапайым пластмасса</button>
+                                </div>
+                                <div class="lec-card">
+                                    <h4>2. Сияның тыныштықта қою болып, тек жазғанда сұйылу қасиеті қалай аталады?</h4>
+                                    <button class="quiz-option" onclick="checkQuiz(this, true)">А) Тиксотропия (Ньютондық емес сұйықтық)</button>
+                                    <button class="quiz-option" onclick="checkQuiz(this, false)">Ә) Диффузиялық булану</button>
+                                    <button class="quiz-option" onclick="checkQuiz(this, false)">Б) Электромагниттік индукция</button>
+                                </div>
+                            </div>
+                        `
+                    }
+                ]
+            },
+            ru: {
+                subtitle: "ЛИЧНЫЙ ИИ-ПОМОЩНИК",
+                placeholder: "Напиши вопрос по лекции (например: разобрать ручку)...",
+                upload: "+ 3D Модель",
+                send: "Отправить ↗",
+                voiceLabel: "🔇 Голос выкл",
+                chip1: "💥 Разобрать ручку",
+                chip2: "📖 Полная лекция",
+                chip3: "🔄 Собрать обратно",
+                pillExplode: "💥 Разобрать",
+                pillAssemble: "🔄 Собрать",
+                pillWire: "🩻 Голограмма (Сетка)",
+                sliderLabel: "Разбор:",
+                badge: "ЛЕКЦИЯ",
+                lecTitle: "Инженерное устройство, механика и физика автоматической ручки",
+                lecPreview: "Устройство состоит из 6 узлов: конус, пружина, стержень, корпус, клипса и кулачковый механизм...",
+                expandBtn: "Подробно 🔼",
+                collapseBtn: "Свернуть 🔽",
+                welcome: "Здравствуйте! Я <b>DANA</b> — интерактивный 3D ИИ-ассистент. Напишите <b>«ручка»</b> или <b>«разобрать ручку»</b>, чтобы вывести 3D-модель, разделить её на части и открыть подробную лекцию.",
+                explodedReply: "<b>Выполнено!</b> 3D-модель ручки разделена на 6 инженерных узлов. Нажмите кнопку <b>«Подробно 🔼»</b> в нижней панели, чтобы открыть полную лекцию из 5 разделов.",
+                assembledReply: "Все детали ручки собраны в исходное положение.",
+                lectureOpenReply: "Полная академическая лекция открыта. Вы можете переключать вкладки (История, Механика, Материаловедение, Формулы, Тест).",
+                helpReply: "Напишите <b>«разобрать ручку»</b> или <b>«лекция»</b> для запуска 3D-разбора и теоретического материала.",
+                parts: [
+                    { name: "1. Наконечник (Конус)", desc: "Металлический конус, центрирующий стержень и исключающий люфт при письме.", meta: "Материал: Латунь | Допуск: ±0.02 мм" },
+                    { name: "2. Возвратная пружина", desc: "Накапливает потенциальную энергию и возвращает стержень внутрь.", meta: "Материал: Пружинная сталь | k = 120 Н/м" },
+                    { name: "3. Стержень с пастой", desc: "Трубка с тиксотропными чернилами и пишущим узлом на конце.", meta: "Шарик: Ø 0.7 мм WC | Запас: 1200 м" },
+                    { name: "4. Нижний корпус", desc: "Эргономичная гильза для удобного хвата пальцами.", meta: "Материал: Анодированный алюминий" },
+                    { name: "5. Верхний корпус и Клип", desc: "Защитная втулка механизма с упругим зажимом для кармана.", meta: "Покрытие: Позолота PVD" },
+                    { name: "6. Кулачковая кнопка", desc: "Бистабильный роторный механизм выдвижения и фиксации стержня.", meta: "Механизм: 2-тактный храповик" }
+                ],
+                tabs: [
+                    {
+                        title: "📘 1. Обзор и История",
+                        html: `
+                            <p><b>Инженерное определение:</b> Автоматическая шариковая ручка — это устройство точной механики с бистабильным возвратным приводом, дозирующее высоковязкую пасту на бумагу через вращающийся микро-шарик.</p>
+                            <div class="lec-grid">
+                                <div class="lec-card">
+                                    <h4>🏛️ История изобретения (1938–1943 гг.)</h4>
+                                    Современную шариковую ручку изобрел венгерский журналист <b>Ласло Биро (László Bíró)</b> совместно с братом-химиком Дьёрдем. Они заменили жидкие чернила на быстросохнущую вязкую типографскую пасту и в 1943 году создали ручку для пилотов Королевских ВВС Великобритании, которая не протекала на большой высоте.
+                                </div>
+                                <div class="lec-card">
+                                    <h4>🔬 Высокоточная микромеханика</h4>
+                                    Зазор между шариком и стенками пишущего гнезда составляет всего <b>1–3 микрометра (мкм)</b> — это в 30 раз тоньше человеческого волоса. Изготовление пишущего узла требует прецизионных станков с ЧПУ.
+                                </div>
+                            </div>
+                        `
+                    },
+                    {
+                        title: "⚙️ 2. Кинематика механизма",
+                        html: `
+                            <p><b>Принцип работы кулачкового механизма (Cam & Plunger):</b> Кнопка (деталь №6) работает как механический триггер с двумя устойчивыми состояниями.</p>
+                            <div class="lec-grid">
+                                <div class="lec-card">
+                                    <h4>Фаза 1: Выдвижение и фиксация</h4>
+                                    При нажатии плунжер давит на скошенные зубья поворотного ротора. Ротор выходит из пазов корпуса, проворачивается на <b>45°</b> и фиксируется на выступах-стопорах, удерживая стержень в рабочем положении.
+                                </div>
+                                <div class="lec-card">
+                                    <h4>Фаза 2: Возврат (Сброс)</h4>
+                                    Повторное нажатие сталкивает ротор со стопора, он поворачивается еще на <b>45°</b> и попадает в глубокий продольный канал. Сжатая <b>пружина (деталь №2)</b> мгновенно возвращает стержень внутрь.
+                                </div>
+                            </div>
+                        `
+                    },
+                    {
+                        title: "🧪 3. Материаловедение и Химия",
+                        html: `
+                            <div class="lec-grid">
+                                <div class="lec-card">
+                                    <h4>💎 Карбид вольфрама (WC)</h4>
+                                    Шарик изготавливается из спеченного <b>карбида вольфрама</b> (твердость 9.0 по шкале Мооса, уступает лишь алмазу). Это исключает деформацию шарика даже после километра исписанной линии.
+                                </div>
+                                <div class="lec-card">
+                                    <h4>💧 Тиксотропия чернил</h4>
+                                    Паста является <b>неньютоновской тиксотропной жидкостью</b>: в покое она густая как гель и не вытекает, но при вращении шарика от напряжения сдвига мгновенно разжижается и ложится на бумагу.
+                                </div>
+                            </div>
+                        `
+                    },
+                    {
+                        title: "📐 4. Физические формулы",
+                        html: `
+                            <div class="formula-box">1. Закон Гука для пружины:  F = k · Δx   |   Потенциальная энергия: E = (k · Δx²) / 2</div>
+                            <div class="formula-box">2. Угловая скорость шарика:  ω = v / r   (при письме шарик совершает до 4000 об/мин)</div>
+                            <div class="formula-box">3. Капиллярное давление Лапласа:  ΔP = (2 · σ · cosθ) / R</div>
+                        `
+                    },
+                    {
+                        title: "✅ 5. Мини-Тест",
+                        html: `
+                            <div class="lec-grid">
+                                <div class="lec-card">
+                                    <h4>1. Из какого материала изготавливают пишущий шарик?</h4>
+                                    <button class="quiz-option" onclick="checkQuiz(this, false)">А) Мягкий алюминий</button>
+                                    <button class="quiz-option" onclick="checkQuiz(this, true)">Б) Карбид вольфрама (WC)</button>
+                                </div>
+                                <div class="lec-card">
+                                    <h4>2. Как называется свойство пасты разжижаться при движении шарика?</h4>
+                                    <button class="quiz-option" onclick="checkQuiz(this, true)">А) Тиксотропия</button>
+                                    <button class="quiz-option" onclick="checkQuiz(this, false)">Б) Кристаллизация</button>
+                                </div>
+                            </div>
+                        `
+                    }
+                ]
+            },
+            en: {
+                subtitle: "PERSONAL AI ASSISTANT",
+                placeholder: "Ask a lecture question (e.g., explode pen)...",
+                upload: "+ 3D Model",
+                send: "Send ↗",
+                voiceLabel: "🔇 Voice Off",
+                chip1: "💥 Explode Pen",
+                chip2: "📖 Full Lecture",
+                chip3: "🔄 Assemble",
+                pillExplode: "💥 Explode",
+                pillAssemble: "🔄 Assemble",
+                pillWire: "🩻 Hologram Wireframe",
+                sliderLabel: "Explode:",
+                badge: "LECTURE",
+                lecTitle: "Engineering Mechanics, Materials & Physics of a Ballpoint Pen",
+                lecPreview: "Consists of 6 core assemblies: nose cone, spring, ink refill, barrel, clip, and cam clicker mechanism...",
+                expandBtn: "Read More 🔼",
+                collapseBtn: "Collapse 🔽",
+                welcome: "Hello! I am <b>DANA</b>, your interactive 3D AI assistant. Type <b>'explode pen'</b> to generate the 3D model, split it into parts, and unlock the comprehensive lecture.",
+                explodedReply: "<b>Done!</b> The 3D pen is exploded into 6 assemblies. Click <b>'Read More 🔼'</b> on the bottom panel to explore the 5-tab university lecture.",
+                assembledReply: "All 6 components have been reassembled.",
+                lectureOpenReply: "Full academic lecture panel expanded. Use the tabs to explore History, Kinematics, Materials, Formulas, and Quiz.",
+                helpReply: "Type <b>'explode pen'</b> or <b>'lecture'</b> to launch the 3D disassembly and academic notes.",
+                parts: [
+                    { name: "1. Nose Cone (Tip)", desc: "Precision brass cone that centers and stabilizes the refill tip.", meta: "Material: Brass | Tolerance: ±0.02 mm" },
+                    { name: "2. Compression Spring", desc: "Stores elastic potential energy to retract the ink cartridge.", meta: "Material: Spring Steel | k = 120 N/m" },
+                    { name: "3. Ink Refill Cartridge", desc: "Polymer tube holding thixotropic ink and tungsten carbide ball.", meta: "Ball: Ø 0.7 mm WC | Capacity: 1200 m" },
+                    { name: "4. Lower Barrel", desc: "Ergonomic cylindrical body gripped during writing.", meta: "Material: Anodized Aluminum / ABS" },
+                    { name: "5. Upper Barrel & Clip", desc: "Protective upper sleeve with PVD gold-plated pocket clip.", meta: "Finish: PVD Gold Coating" },
+                    { name: "6. Cam Clicker Button", desc: "Bistable rotary cam mechanism that locks and releases the refill.", meta: "Mechanism: 2-State Rotary Cam" }
+                ],
+                tabs: [
+                    {
+                        title: "📘 1. Overview & History",
+                        html: `
+                            <p><b>Engineering Definition:</b> A retractable ballpoint pen is a precision mechanical instrument featuring a bistable cam actuator that dispenses high-viscosity thixotropic ink via a rolling micro-sphere.</p>
+                            <div class="lec-grid">
+                                <div class="lec-card">
+                                    <h4>🏛️ Invention History (1938–1943)</h4>
+                                    Invented by Hungarian journalist <b>László Bíró</b> and his chemist brother György. Combining quick-drying newspaper ink with a ball-and-socket tip, they produced pens for the Royal Air Force in 1943 that wouldn't leak at high altitudes.
+                                </div>
+                                <div class="lec-card">
+                                    <h4>🔬 Micro-Manufacturing Precision</h4>
+                                    The clearance between the ball and its brass socket is just <b>1–3 micrometers (µm)</b> — 30 times thinner than a human hair, allowing ink flow while preventing leaks.
+                                </div>
+                            </div>
+                        `
+                    },
+                    {
+                        title: "⚙️ 2. Cam Kinematics",
+                        html: `
+                            <div class="lec-grid">
+                                <div class="lec-card">
+                                    <h4>Phase 1: Extension & Lock</h4>
+                                    Pressing the plunger engages angled cam teeth, rotating the internal rotor by <b>45°</b> until it latches onto internal stop ridges inside the upper barrel.
+                                </div>
+                                <div class="lec-card">
+                                    <h4>Phase 2: Retraction</h4>
+                                    A second press unlatches the rotor, rotating it another <b>45°</b> into deep longitudinal grooves so the <b>compression spring</b> pushes the cartridge back.
+                                </div>
+                            </div>
+                        `
+                    },
+                    {
+                        title: "🧪 3. Materials & Rheology",
+                        html: `
+                            <div class="lec-grid">
+                                <div class="lec-card">
+                                    <h4>💎 Tungsten Carbide (WC)</h4>
+                                    The ball is sintered from tungsten carbide (Mohs hardness 9.0, second only to diamond) to resist abrasive paper wear.
+                                </div>
+                                <div class="lec-card">
+                                    <h4>💧 Thixotropic Ink</h4>
+                                    The paste is a <b>non-Newtonian shear-thinning fluid</b>: solid-like at rest to prevent leaking, yet flowing smoothly under shear stress when the ball rotates.
+                                </div>
+                            </div>
+                        `
+                    },
+                    {
+                        title: "📐 4. Physics Formulas",
+                        html: `
+                            <div class="formula-box">1. Hooke's Law (Spring):  F = k · Δx   |   Elastic Energy: E = (k · Δx²) / 2</div>
+                            <div class="formula-box">2. Ball Angular Velocity:  ω = v / r   (~3,500 RPM during normal handwriting)</div>
+                            <div class="formula-box">3. Laplace Capillary Pressure:  ΔP = (2 · σ · cosθ) / R</div>
+                        `
+                    },
+                    {
+                        title: "✅ 5. Mini-Quiz",
+                        html: `
+                            <div class="lec-grid">
+                                <div class="lec-card">
+                                    <h4>1. What material is used for the writing ball?</h4>
+                                    <button class="quiz-option" onclick="checkQuiz(this, true)">A) Tungsten Carbide (WC)</button>
+                                    <button class="quiz-option" onclick="checkQuiz(this, false)">B) Soft Aluminum</button>
+                                </div>
+                                <div class="lec-card">
+                                    <h4>2. What fluid property makes ink thin out only when writing?</h4>
+                                    <button class="quiz-option" onclick="checkQuiz(this, true)">A) Thixotropy (Shear-thinning)</button>
+                                    <button class="quiz-option" onclick="checkQuiz(this, false)">B) Magnetic Induction</button>
+                                </div>
+                            </div>
+                        `
+                    }
+                ]
+            }
+        };
+
+        // =========================================================================
+        // 3. ОҢ ЖАҚТАҒЫ 3D РУЧКА МОДЕЛІН ҚҰРУ (THREE.JS)
+        // =========================================================================
+        const renderArea = document.getElementById('renderArea');
+        const leaderSvg = document.getElementById('leaderSvg');
+        const scene = new THREE.Scene();
+
+        const camera = new THREE.PerspectiveCamera(40, renderArea.clientWidth / renderArea.clientHeight, 0.1, 1000);
+        camera.position.set(0, 3.0, 14.0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(renderArea.clientWidth, renderArea.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderArea.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.06;
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+        const light1 = new THREE.DirectionalLight(0xfff4d6, 1.4); light1.position.set(10, 16, 12); scene.add(light1);
+        const light2 = new THREE.DirectionalLight(0x38bdf8, 0.75); light2.position.set(-10, -10, -10); scene.add(light2);
+
+        const allMaterials = [];
+        function makeMat(params) {
+            const m = new THREE.MeshStandardMaterial(params);
+            allMaterials.push(m);
+            return m;
+        }
+        const blackMatte = makeMat({ color: 0x151821, roughness: 0.32, metalness: 0.4 });
+        const goldMetal = makeMat({ color: 0xd4af37, roughness: 0.18, metalness: 0.88 });
+        const silverMetal = makeMat({ color: 0xcbd5e1, roughness: 0.2, metalness: 0.9 });
+        const whitePlastic = makeMat({ color: 0xf1f5f9, roughness: 0.4, metalness: 0.1 });
+        const inkBlue = makeMat({ color: 0x0284c7, roughness: 0.3 });
+
+        const penMasterGroup = new THREE.Group();
+        penMasterGroup.visible = false; // Бастапқыда көрінбейді
+        scene.add(penMasterGroup);
+
+        const penParts = [];
+
+        function registerPart(index, assembledPos, explodedPos, labelOffset) {
+            const group = new THREE.Group();
+            group.position.copy(assembledPos);
+            penMasterGroup.add(group);
+
+            const label = document.createElement('div');
+            label.className = 'part-label';
+            label.onclick = () => focusOnPart(index);
+            renderArea.appendChild(label);
+
+            // Лазерлік SVG сызық
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('stroke', '#14b8a6');
+            line.setAttribute('stroke-width', '1.4');
+            line.setAttribute('stroke-dasharray', '4,3');
+            line.style.opacity = '0';
+            line.style.transition = 'opacity 0.3s';
+            leaderSvg.appendChild(line);
+
+            penParts.push({
+                index,
+                group,
+                assembledPos: assembledPos.clone(),
+                explodedPos: explodedPos.clone(),
+                labelOffset: labelOffset.clone(),
+                labelElement: label,
+                svgLine: line
+            });
+            return group;
+        }
+
+        // 6 Бөлшектің геометриясы
+        const tipG = registerPart(0, new THREE.Vector3(-3.6, 0, 0), new THREE.Vector3(-7.6, -0.35, 0), new THREE.Vector3(0, -1.45, 0));
+        const coneGeo = new THREE.CylinderGeometry(0.06, 0.28, 1.2, 32); coneGeo.rotateZ(Math.PI/2); tipG.add(new THREE.Mesh(coneGeo, goldMetal));
+
+        const springG = registerPart(1, new THREE.Vector3(-2.4, 0, 0), new THREE.Vector3(-4.6, 1.35, 0), new THREE.Vector3(0, 1.3, 0));
+        class Helix extends THREE.Curve { getPoint(t) { const a = t*Math.PI*14; return new THREE.Vector3((t-0.5)*1.3, Math.cos(a)*0.14, Math.sin(a)*0.14); } }
+        springG.add(new THREE.Mesh(new THREE.TubeGeometry(new Helix(), 100, 0.024, 8, false), silverMetal));
+
+        const refillG = registerPart(2, new THREE.Vector3(-0.6, 0, 0), new THREE.Vector3(-0.6, 2.3, 0), new THREE.Vector3(0, 1.25, 0));
+        const tubeGeo = new THREE.CylinderGeometry(0.07, 0.07, 5.2, 20); tubeGeo.rotateZ(Math.PI/2); refillG.add(new THREE.Mesh(tubeGeo, whitePlastic));
+        const nibGeo = new THREE.CylinderGeometry(0.02, 0.07, 0.6, 16); nibGeo.rotateZ(Math.PI/2);
+        const nib = new THREE.Mesh(nibGeo, goldMetal); nib.position.x = -2.9; refillG.add(nib);
+        const ball = new THREE.Mesh(new THREE.SphereGeometry(0.028, 16, 16), inkBlue); ball.position.x = -3.2; refillG.add(ball);
+
+        const lowerG = registerPart(3, new THREE.Vector3(-1.3, 0, 0), new THREE.Vector3(-1.4, -1.55, 0), new THREE.Vector3(0, -1.45, 0));
+        const lowCyl = new THREE.CylinderGeometry(0.28, 0.28, 3.4, 32); lowCyl.rotateZ(Math.PI/2); lowerG.add(new THREE.Mesh(lowCyl, blackMatte));
+        const ringGeo = new THREE.CylinderGeometry(0.295, 0.295, 0.2, 32); ringGeo.rotateZ(Math.PI/2);
+        const ring = new THREE.Mesh(ringGeo, goldMetal); ring.position.x = 1.65; lowerG.add(ring);
+
+        const upperG = registerPart(4, new THREE.Vector3(1.9, 0, 0), new THREE.Vector3(3.6, -0.55, 0), new THREE.Vector3(0, -1.5, 0));
+        const upCyl = new THREE.CylinderGeometry(0.29, 0.285, 3.0, 32); upCyl.rotateZ(Math.PI/2); upperG.add(new THREE.Mesh(upCyl, blackMatte));
+        const clip = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.06, 0.14), goldMetal); clip.position.set(0.2, 0.35, 0); upperG.add(clip);
+        const clipBase = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.15, 0.14), goldMetal); clipBase.position.set(1.15, 0.28, 0); upperG.add(clipBase);
+
+        const btnG = registerPart(5, new THREE.Vector3(3.7, 0, 0), new THREE.Vector3(7.2, 1.0, 0), new THREE.Vector3(0, 1.35, 0));
+        const btnCyl = new THREE.CylinderGeometry(0.18, 0.18, 0.8, 32); btnCyl.rotateZ(Math.PI/2); btnG.add(new THREE.Mesh(btnCyl, goldMetal));
+        const plungerCyl = new THREE.CylinderGeometry(0.14, 0.14, 0.7, 16); plungerCyl.rotateZ(Math.PI/2);
+        const plunger = new THREE.Mesh(plungerCyl, silverMetal); plunger.position.x = -0.7; btnG.add(plunger);
+
+        // =========================================================================
+        // 4. АНИМАЦИЯ ЖӘНЕ ИНТЕРАКТИВТІ БАСҚАРУ
+        // =========================================================================
+        let isModelVisible = false;
+        let explodeFactor = 0.0;
+        let targetExplodeFactor = 0.0;
+        let isWireframe = false;
+        let isLectureExpanded = false;
+        let isLectureFullscreen = false;
+
+        function showAndExplodePen() {
+            if (!isModelVisible) {
+                isModelVisible = true;
+                penMasterGroup.visible = true;
+                penParts.forEach(p => p.group.position.copy(p.assembledPos));
+                document.getElementById('stageToolbar').classList.add('active');
+                document.getElementById('watermarkSvg').classList.add('hidden');
+                document.getElementById('lecturePanel').classList.add('active');
+            }
+            targetExplodeFactor = 1.0;
+            document.getElementById('explodeSlider').value = 100;
+            document.getElementById('sliderVal').innerText = '100%';
+            updateLabelsVisibility(true);
+        }
+
+        function assemblePen() {
+            if (!isModelVisible) return;
+            targetExplodeFactor = 0.0;
+            document.getElementById('explodeSlider').value = 0;
+            document.getElementById('sliderVal').innerText = '0%';
+            updateLabelsVisibility(false);
+        }
+
+        function manualExplode(val) {
+            targetExplodeFactor = val / 100;
+            document.getElementById('sliderVal').innerText = val + '%';
+            updateLabelsVisibility(val > 25);
+        }
+
+        function updateLabelsVisibility(show) {
+            penParts.forEach(p => {
+                if (show) {
+                    p.labelElement.classList.add('visible');
+                    p.svgLine.style.opacity = '0.75';
+                } else {
+                    p.labelElement.classList.remove('visible');
+                    p.svgLine.style.opacity = '0';
+                }
+            });
+        }
+
+        function toggleWireframe() {
+            isWireframe = !isWireframe;
+            allMaterials.forEach(m => m.wireframe = isWireframe);
+            document.getElementById('pillWire').classList.toggle('active-mode', isWireframe);
+        }
+
+        function focusOnPart(idx) {
+            const p = dictionary[currentLang].parts[idx];
+            const feed = document.getElementById('chatFeed');
+            feed.innerHTML += `<div class="msg msg-ai">🔍 <b>${p.name}</b><br>${p.desc}<br><small style="color:#0f766e">${p.meta}</small></div>`;
+            feed.scrollTop = feed.scrollHeight;
+            pulseHologram();
+        }
+
+        // Негізгі рендер циклі (Екі 3D сахнаны қатар жүргізеді)
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsed = clock.getElapsedTime();
+
+            // 1. Сол жақтағы 3D Голограмма қыздың анимациясы
+            holoUniforms.uTime.value = elapsed;
+            holoUniforms.uSpeakBoost.value = THREE.MathUtils.lerp(holoUniforms.uSpeakBoost.value, 0.0, 0.04);
+            avatarBustGroup.rotation.y = 0.45 + Math.sin(elapsed * 0.9) * 0.22;
+            avatarBustGroup.rotation.x = Math.sin(elapsed * 1.4) * 0.04;
+            avatarBustGroup.position.y = Math.sin(elapsed * 1.8) * 0.03;
+            holoRing.rotation.z = elapsed * 0.4;
+            holoRenderer.render(holoScene, holoCamera);
+
+            // 2. Оң жақтағы 3D Ручканың анимациясы
+            if (isModelVisible) {
+                explodeFactor = THREE.MathUtils.lerp(explodeFactor, targetExplodeFactor, 0.08);
+
+                penParts.forEach(p => {
+                    const desiredPos = new THREE.Vector3().lerpVectors(p.assembledPos, p.explodedPos, explodeFactor);
+                    p.group.position.copy(desiredPos);
+
+                    // 3D бөлшек ортасының экрандағы координатасы
+                    const partWorld = p.group.position.clone().applyMatrix4(penMasterGroup.matrixWorld);
+                    partWorld.project(camera);
+                    const px = (partWorld.x * 0.5 + 0.5) * renderArea.clientWidth;
+                    const py = (partWorld.y * -0.5 + 0.5) * renderArea.clientHeight;
+
+                    // Карточканың экрандағы координатасы
+                    const labelWorld = p.group.position.clone().add(p.labelOffset).applyMatrix4(penMasterGroup.matrixWorld);
+                    labelWorld.project(camera);
+                    const lx = (labelWorld.x * 0.5 + 0.5) * renderArea.clientWidth;
+                    const ly = (labelWorld.y * -0.5 + 0.5) * renderArea.clientHeight;
+
+                    p.labelElement.style.left = `${lx}px`;
+                    p.labelElement.style.top = `${ly}px`;
+
+                    p.svgLine.setAttribute('x1', px);
+                    p.svgLine.setAttribute('y1', py);
+                    p.svgLine.setAttribute('x2', lx);
+                    p.svgLine.setAttribute('y2', ly);
+                });
+
+                if (explodeFactor < 0.1) {
+                    penMasterGroup.rotation.y += 0.005;
+                } else {
+                    penMasterGroup.rotation.y = THREE.MathUtils.lerp(penMasterGroup.rotation.y, 0, 0.08);
+                }
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        function handleResize() {
+            camera.aspect = renderArea.clientWidth / renderArea.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(renderArea.clientWidth, renderArea.clientHeight);
+
+            holoCamera.aspect = holoWrap.clientWidth / holoWrap.clientHeight;
+            holoCamera.updateProjectionMatrix();
+            holoRenderer.setSize(holoWrap.clientWidth, holoWrap.clientHeight);
+        }
+        window.addEventListener('resize', handleResize);
+
+        // =========================================================================
+        // 5. ЛЕКЦИЯ ПАНЕЛІ, ЧАТ ЖӘНЕ ТІЛ БАСҚАРУ
+        // =========================================================================
+        function toggleLecture(forceOpen) {
+            const panel = document.getElementById('lecturePanel');
+            const btn = document.getElementById('expandBtn');
+            const d = dictionary[currentLang];
+
+            isLectureExpanded = typeof forceOpen === 'boolean' ? forceOpen : !isLectureExpanded;
+            if (!isLectureExpanded) {
+                isLectureFullscreen = false;
+                panel.classList.remove('fullscreen');
+            }
+            panel.classList.toggle('expanded', isLectureExpanded);
+            btn.innerText = isLectureExpanded ? d.collapseBtn : d.expandBtn;
+        }
+
+        function toggleFullLecture() {
+            const panel = document.getElementById('lecturePanel');
+            isLectureFullscreen = !isLectureFullscreen;
+            panel.classList.toggle('fullscreen', isLectureFullscreen);
+        }
+
+        function renderLectureTabs() {
+            const tabsData = dictionary[currentLang].tabs;
+            const tabsContainer = document.getElementById('lectureTabs');
+            tabsContainer.innerHTML = '';
+
+            tabsData.forEach((t, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'lec-tab' + (idx === currentTabIndex ? ' active' : '');
+                btn.innerText = t.title;
+                btn.onclick = () => {
+                    currentTabIndex = idx;
+                    renderLectureTabs();
+                };
+                tabsContainer.appendChild(btn);
+            });
+
+            document.getElementById('lectureBody').innerHTML = tabsData[currentTabIndex].html;
+        }
+
+        function checkQuiz(btn, isCorrect) {
+            const parent = btn.parentElement;
+            parent.querySelectorAll('.quiz-option').forEach(b => b.classList.remove('correct', 'wrong'));
+            btn.classList.add(isCorrect ? 'correct' : 'wrong');
+        }
+
+        function triggerCommand(cmd) {
+            document.getElementById('questionInput').value = cmd;
+            handleSend();
+        }
+
+        function handleSend() {
+            const input = document.getElementById('questionInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const feed = document.getElementById('chatFeed');
+            feed.innerHTML += `<div class="msg msg-user">${text}</div>`;
+            input.value = '';
+            feed.scrollTop = feed.scrollHeight;
+
+            const low = text.toLowerCase();
+            const d = dictionary[currentLang];
+
+            pulseHologram(); // DANA жауап бергенде 3D голограмма жарқырап импульс береді
+
+            setTimeout(() => {
+                let reply = "";
+                if (low.includes('шаш') || low.includes('бөл') || low.includes('ручка') || low.includes('қалам') || low.includes('разобр') || low.includes('разбер') || low.includes('pen') || low.includes('explode')) {
+                    showAndExplodePen();
+                    reply = d.explodedReply;
+                } else if (low.includes('лекция') || low.includes('толық') || low.includes('подробн') || low.includes('lecture')) {
+                    showAndExplodePen();
+                    toggleLecture(true);
+                    reply = d.lectureOpenReply;
+                } else if (low.includes('жина') || low.includes('қос') || low.includes('собр') || low.includes('собер') || low.includes('assemble')) {
+                    assemblePen();
+                    reply = d.assembledReply;
+                } else {
+                    reply = d.helpReply;
+                }
+
+                feed.innerHTML += `<div class="msg msg-ai">${reply}</div>`;
+                feed.scrollTop = feed.scrollHeight;
+            }, 320);
+        }
+
+        document.getElementById('questionInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleSend();
+        });
+
+        function changeLanguage(lang) {
+            currentLang = lang;
+            const d = dictionary[lang];
+
+            document.getElementById('uiSubtitle').innerText = d.subtitle;
+            document.getElementById('questionInput').placeholder = d.placeholder;
+            document.getElementById('btnUpload').innerText = d.upload;
+            document.getElementById('btnSend').innerText = d.send;
+            document.getElementById('btnVoice').innerHTML = d.voiceLabel;
+            document.getElementById('chip1').innerText = d.chip1;
+            document.getElementById('chip2').innerText = d.chip2;
+            document.getElementById('chip3').innerText = d.chip3;
+            document.getElementById('pillExplode').innerText = d.pillExplode;
+            document.getElementById('pillAssemble').innerText = d.pillAssemble;
+            document.getElementById('pillWire').innerText = d.pillWire;
+            document.getElementById('sliderLabel').innerText = d.sliderLabel;
+            document.getElementById('welcomeMsg').innerHTML = d.welcome;
+
+            document.getElementById('badgeText').innerText = d.badge;
+            document.getElementById('lecTitleText').innerText = d.lecTitle;
+            document.getElementById('lecPreviewText').innerText = d.lecPreview;
+            document.getElementById('expandBtn').innerText = isLectureExpanded ? d.collapseBtn : d.expandBtn;
+
+            penParts.forEach((p, idx) => {
+                p.labelElement.innerHTML = `<b>${d.parts[idx].name}</b>${d.parts[idx].desc}<span class="part-meta">${d.parts[idx].meta}</span>`;
+            });
+
+            renderLectureTabs();
+        }
+
+        changeLanguage('kk');
+    </script>
+</body>
+</html>
